@@ -40,7 +40,7 @@ colors = {
 #   have more layers to compensate. The standard input size is somewhere from 200x200 
 #   to 600x600. A model with a large input size consumes more GPU memory and also would 
 #   take more time to train.
-size = 600
+size = 608 # 32 で割り切れる数にしておく
 
 # 出力先ディレクトリ
 output_x_train = './dataset/train_images/'
