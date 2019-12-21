@@ -59,7 +59,7 @@ split_test  = 0.1
 split_train = 0.9
 random.seed(0)
 
-def read_json(filename, source_dir):
+def read_json(filename, source_dir, resize=True):
     fp = open(filename)
     _d = json.load(fp)
 
@@ -73,10 +73,17 @@ def read_json(filename, source_dir):
     # URLエンコードされてるのでデコード
     name = urllib.parse.unquote(name)
 
-    if (width > height):
-        scale = size / width
+    if resize:
+        if (width > height):
+            scale = size / width
+        else:
+            scale = size / height
+        shift_x = 0
+        shift_y = 0
     else:
-        scale = size / height
+        scale = 1 
+        shift_x = (size - width) / 2
+        shift_y = (size - height) / 2
 
     shape = [size, size, 3] # BGR
     img = np.zeros(shape, dtype=np.uint8)
@@ -92,7 +99,7 @@ def read_json(filename, source_dir):
         tag_index = tags[_tag]
         tag_color = colors[tag_index]
 
-        points = [[p['x'] * scale, p['y'] * scale] for p in _points]
+        points = [[p['x'] * scale + shift_x, p['y'] * scale + shift_y] for p in _points]
         points = np.array(points).astype(np.int32)
         img = cv2.fillPoly(img, pts=[points], color=tag_color)
     
@@ -106,37 +113,39 @@ def read_json(filename, source_dir):
     # アノテーション画像
     filename_annotation = output_y + id + '.png'
     cv2.imwrite(filename_annotation, img)
-    # print("wrote: " + filename_annotation)
 
     # RGB 画像（サイズ統一）
     filename_orig = source_dir + name
 
     img_orig = cv2.imread(filename_orig)
-    img_orig = cv2.resize(img_orig, None, fx=scale, fy=scale)
-    _h, _w = img_orig.shape[:2]
-    img_dest = np.zeros(shape, dtype=np.uint8)
-    img_dest[0:_h, 0:_w] = img_orig
+    if resize:
+        img_orig = cv2.resize(img_orig, None, fx=scale, fy=scale)
+        _h, _w = img_orig.shape[:2]
+        img_dest = np.zeros(shape, dtype=np.uint8)
+        img_dest[0:_h, 0:_w] = img_orig
+    else:
+        img_dest = cv2.getRectSubPix(img_orig, (size, size), (height/2, width/2))
 
     filename_input = output_x + id + '.png' # JPEG 圧縮で劣化するのは嫌なので
     cv2.imwrite(filename_input, img_dest)
-    # print('wrote: ' + filename_input)
 
     # プレビュー画像
     img_preview = cv2.addWeighted(img_dest, 1.0, img, 0.25, 0)
     filename_preview = output_preview + id + '.jpg'
     cv2.imwrite(filename_preview, img_preview)
-    # print('wrote: ' + filename_preview)
 
+    # ファイル名の対応を出力
     print(id + ' : ' + filename_orig)
 
 # 実行用
 if __name__ == '__main__':
     args = sys.argv
-    if (len(args) != 3):
-        exit('Usage: python3 vott-json-to-segmentation-dataset.py {vott-target-dir} {vott-source-dir}')
+    if (len(args) != 4):
+        exit('Usage: python3 vott-json-to-segmentation-dataset.py {vott-target-dir} {vott-source-dir} {resize|center}')
 
     vott_target_dir = args[1]
     vott_source_dir = args[2]
+    mode = args[3]
 
     if (not(os.path.exists(vott_source_dir)) or not(os.path.isdir(vott_source_dir))):
         exit('source-dir does not exists')
@@ -145,4 +154,4 @@ if __name__ == '__main__':
         exit('target-dir does not exists')
 
     for json_file in glob.glob(vott_target_dir + "/*.json"):
-        read_json(json_file, vott_source_dir)
+        read_json(json_file, vott_source_dir, mode=='resize')
