@@ -21,14 +21,25 @@ import glob
 
 # タグとラベルの対応
 tags = {
-    "Low intensity intima": 1,
+    # "Low intensity intima": 1,
+    "Fibrocalcific plaque": 1,
+    "Fibrous cap atheroma": 2,
+    "Healed erosion/rupture": 3,
+    "Intimal xanthoma": 4,
+    "Pathological intimal thickening": 5,
+    "TCFA": 6,
 }
 
 # 各クラスに割り当てる BGR カラー値。
 # https://github.com/divamgupta/image-segmentation-keras#preparing-the-data-for-training
 # B チャンネルの値がクラスのラベルとして使われる。
 colors = {
-    1: (1, 0, 255),
+    1: (1, 000, 255),
+    2: (2, 127, 255),
+    3: (3, 255, 255),
+    4: (4, 000, 127),
+    5: (5, 127, 127),
+    6: (6, 255, 127),
 }
 
 # 出力画像サイズ
@@ -47,7 +58,7 @@ output_x_train = './dataset/train_images/'
 output_y_train = './dataset/train_annotations/'
 output_x_test = './dataset/test_images/'
 output_y_test = './dataset/test_annotations/'
-output_preview = './preview/'
+output_preview = './dataset/preview/'
 os.makedirs(output_x_train, exist_ok=True)
 os.makedirs(output_y_train, exist_ok=True)
 os.makedirs(output_x_test, exist_ok=True)
@@ -82,8 +93,8 @@ def read_json(filename, source_dir, resize=True):
         shift_y = 0
     else:
         scale = 1 
-        shift_x = (size - width) / 2
-        shift_y = (size - height) / 2
+        shift_x = (size - width) / 2  #(608-500)/2 = 54
+        shift_y = (size - height) / 2 #(608-578)/2 = 15
 
     shape = [size, size, 3] # BGR
     img = np.zeros(shape, dtype=np.uint8)
@@ -92,8 +103,10 @@ def read_json(filename, source_dir, resize=True):
         _tags    = _region['tags']
         _points  = _region['points']
 
-        if (len(_tags) != 1):
-            sys.exit('len(tags) is not 1')
+        if len(_tags) == 0:
+            sys.exit('len(tags) is 0')
+        elif len(_tags) > 1:
+            print('[Wargning] ' + id + ' : skipped multi-selected tags')
 
         _tag = _tags[0]
         tag_index = tags[_tag]
@@ -124,7 +137,11 @@ def read_json(filename, source_dir, resize=True):
         img_dest = np.zeros(shape, dtype=np.uint8)
         img_dest[0:_h, 0:_w] = img_orig
     else:
-        img_dest = cv2.getRectSubPix(img_orig, (size, size), (height/2, width/2))
+        _border = 1
+        img_orig = cv2.copyMakeBorder(img_orig, _border, _border, _border, _border, cv2.BORDER_CONSTANT, value=[0,0,0])
+        _patch_size = (size, size)
+        _center = (width/2 + _border, height/2 + _border)
+        img_dest = cv2.getRectSubPix(img_orig, _patch_size, _center)
 
     filename_input = output_x + id + '.png' # JPEG 圧縮で劣化するのは嫌なので
     cv2.imwrite(filename_input, img_dest)
