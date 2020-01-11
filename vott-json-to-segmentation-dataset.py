@@ -21,13 +21,13 @@ import glob
 
 # タグとラベルの対応
 tags = {
-    # "Low intensity intima": 1,
     "Fibrocalcific plaque": 1,
     "Fibrous cap atheroma": 2,
     "Healed erosion/rupture": 3,
     "Intimal xanthoma": 4,
     "Pathological intimal thickening": 5,
     "TCFA": 6,
+    "Calcified nodule": 7,
 }
 
 # 各クラスに割り当てる BGR カラー値。
@@ -40,6 +40,7 @@ colors = {
     4: (4, 000, 127),
     5: (5, 127, 127),
     6: (6, 255, 127),
+    7: (7, 255, 000),
 }
 
 # 出力画像サイズ
