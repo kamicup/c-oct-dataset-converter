@@ -6,6 +6,12 @@
 ## https://github.com/divamgupta/image-segmentation-keras
 ## に使う学習データを作成するスクリプト。
 ##
+## Usage:
+##     python3 vott-json-to-segmentation-dataset.py {vott-target-dir} {vott-source-dir} {resize|center}
+## 
+## vott-target-dir: JSON ファイルがある場所
+## vott-source-dir: 画像ファイルがある場所
+##
 ################################################################################
 
 import numpy as np
@@ -18,6 +24,9 @@ import os
 import urllib.parse
 import random
 import glob
+
+# データセット出力先ディレクトリ
+dataset_dir = './dataset'
 
 # タグとラベルの対応
 tags = {
@@ -33,6 +42,7 @@ tags = {
 # 各クラスに割り当てる BGR カラー値。
 # https://github.com/divamgupta/image-segmentation-keras#preparing-the-data-for-training
 # B チャンネルの値がクラスのラベルとして使われる。
+# G,R チャンネルは意味を持たないので、便宜上、目視確認しやすくするために使う。
 colors = {
     1: (1, 000, 255),
     2: (2, 127, 255),
@@ -52,14 +62,16 @@ colors = {
 #   have more layers to compensate. The standard input size is somewhere from 200x200 
 #   to 600x600. A model with a large input size consumes more GPU memory and also would 
 #   take more time to train.
-size = 608 # 32 で割り切れる数にしておく
+
+# size = 608 # 32 で割り切れる数にしておく（VGG16, ResNet-50 対応）
+size = 576 # 192 で割り切れる数にしておく（PSPNet 対応）
 
 # 出力先ディレクトリ
-output_x_train = './dataset/train_images/'
-output_y_train = './dataset/train_annotations/'
-output_x_test = './dataset/test_images/'
-output_y_test = './dataset/test_annotations/'
-output_preview = './dataset/preview/'
+output_x_train = dataset_dir + '/train_images/'
+output_y_train = dataset_dir + '/train_annotations/'
+output_x_test = dataset_dir + '/test_images/'
+output_y_test = dataset_dir + '/test_annotations/'
+output_preview = dataset_dir + '/preview/'
 os.makedirs(output_x_train, exist_ok=True)
 os.makedirs(output_y_train, exist_ok=True)
 os.makedirs(output_x_test, exist_ok=True)
@@ -110,6 +122,9 @@ def read_json(filename, source_dir, resize=True):
             print('[Wargning] ' + id + ' : skipped multi-selected tags')
 
         _tag = _tags[0]
+        if _tag not in tags:
+            print('[Info] ' + id + ' : skipped tag : ' + _tag)
+            continue
         tag_index = tags[_tag]
         tag_color = colors[tag_index]
 
