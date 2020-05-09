@@ -14,6 +14,8 @@
 ## 必要な OpenCV と Numpy をインストールするには：
 ##    pip3 install opencv-python -t .
 ## 
+## テスト画像が png なら `mogrify -format jpg -path {images-dir} *.png` などで変換すること。
+##
 ########################################################################
 
 import numpy as np
@@ -22,47 +24,54 @@ import sys
 import os
 import glob
 
+# models = []
+# for i in [0,1,2,3,4,5,10,25,50]:
+#     models.append({
+#         'name': "resnet50_pspnet_ep{}".format(i),
+#         'text': "Resnet50 x PSPNet ({})".format(i),
+#     })
+
 models = [
-    {
-        'name': 'pspnet',
-        'text': 'Vanila CNN x PSPNet',
-    },
-    {
-        'name': 'vgg_pspnet',
-        'text': 'VGG16 x PSPNet',
-    },
+    # {
+    #     'name': 'pspnet',
+    #     'text': 'Vanila CNN x PSPNet',
+    # },
+    # {
+    #     'name': 'vgg_pspnet',
+    #     'text': 'VGG16 x PSPNet',
+    # },
     {
         'name': 'resnet50_pspnet',
         'text': 'Resnet50 x PSPNet',
     },
-    {
-        'name': 'segnet',
-        'text': 'Vanila CNN x SegNet',
-    },
-    {
-        'name': 'vgg_segnet',
-        'text': 'VGG16 x SegNet',
-    },
-    {
-        'name': 'resnet50_segnet',
-        'text': 'Resnet50 x SegNet',
-    },
-    {
-        'name': 'vgg_unet',
-        'text': 'VGG16 x U-Net',
-    },
-    {
-        'name': 'resnet50_unet',
-        'text': 'Resnet50 x U-Net',
-    },
-    {
-        'name': 'fcn_32',
-        'text': 'Vanila CNN x FCN',
-    },
-    {
-        'name': 'fcn_32_vgg',
-        'text': 'VGG16 x FCN',
-    },
+    # {
+    #     'name': 'segnet',
+    #     'text': 'Vanila CNN x SegNet',
+    # },
+    # {
+    #     'name': 'vgg_segnet',
+    #     'text': 'VGG16 x SegNet',
+    # },
+    # {
+    #     'name': 'resnet50_segnet',
+    #     'text': 'Resnet50 x SegNet',
+    # },
+    # {
+    #     'name': 'vgg_unet',
+    #     'text': 'VGG16 x U-Net',
+    # },
+    # {
+    #     'name': 'resnet50_unet',
+    #     'text': 'Resnet50 x U-Net',
+    # },
+    # {
+    #     'name': 'fcn_32',
+    #     'text': 'Vanila CNN x FCN',
+    # },
+    # {
+    #     'name': 'fcn_32_vgg',
+    #     'text': 'VGG16 x FCN',
+    # },
 ]
 
 if __name__ == "__main__":

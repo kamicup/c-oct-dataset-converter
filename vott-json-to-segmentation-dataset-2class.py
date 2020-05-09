@@ -7,7 +7,7 @@
 ## に使う学習データを作成するスクリプト。
 ##
 ## Usage:
-##     python3 vott-json-to-segmentation-dataset.py {vott-target-dir} {vott-source-dir} {resize|center}
+##     python3 vott-json-to-segmentation-dataset-4class.py {vott-target-dir} {vott-source-dir} {resize|center}
 ## 
 ## vott-target-dir: JSON ファイルがある場所
 ## vott-source-dir: 画像ファイルがある場所
@@ -26,16 +26,18 @@ import random
 import glob
 
 # データセット出力先ディレクトリ
-dataset_dir = './dataset'
+dataset_dir = './dataset-2class'
 
 # タグとラベルの対応
 tags = {
-    "Fibrocalcific plaque": 1, "Fibrocalcific palque": 1,
-    "Fibrous cap atheroma": 2, "TCFA": 2,
-    "Healed erosion/rupture": 3,
-    "Intimal xanthoma": 4,
-    "Pathological intimal thickening": 5,
-    "Calcified nodule": 6,
+    # "Fibrocalcific plaque": -1,
+    # "Fibrocalcific palque": -1,
+    "Fibrous cap atheroma": 1,
+    "TCFA": 1,
+    # "Healed erosion/rupture": -3,
+    "Intimal xanthoma": 2,
+    "Pathological intimal thickening": 2,
+    # "Calcified nodule": -6,
 }
 
 # 各クラスに割り当てる BGR カラー値。
@@ -44,12 +46,9 @@ tags = {
 # G,R チャンネルは意味を持たないので、便宜上、目視確認しやすくするために使う。
 colors = {
     1: (1, 000, 255),
-    2: (2, 127, 255),
-    3: (3, 255, 255),
-    4: (4, 000, 127),
-    5: (5, 127, 127),
-    6: (6, 255, 127),
+    2: (2, 255, 000),
 }
+
 
 # 出力画像サイズ
 # https://divamgupta.com/image-segmentation/2019/06/06/deep-learning-semantic-segmentation-keras.html
@@ -181,7 +180,7 @@ def read_json(filename, source_dir, resize=True):
 if __name__ == '__main__':
     args = sys.argv
     if (len(args) != 4):
-        exit('Usage: python3 vott-json-to-segmentation-dataset.py {vott-target-dir} {vott-source-dir} {resize|center}')
+        exit('Usage: python3 vott-json-to-segmentation-dataset-2class.py {vott-target-dir} {vott-source-dir} {resize|center}')
 
     vott_target_dir = args[1]
     vott_source_dir = args[2]
