@@ -176,11 +176,11 @@ class PSPNetFactory:
         x = self.resize_image(input=x, factors=(32, 32)) # 1/1
 
         if with_auxiliary_loss:
-            
-            #TODO もしかして、ここにも Pyramid Pooling Module いる？
-
+            aux = f4
+            # Pyramid Pooling Module
+            aux = self.pyramid_pooling_module(input=aux, pool_factors=[1, 2, 3, 6])
             # sub branch for auxiliary loss feedback
-            aux = Conv2D(filters=256, kernel_size=(1, 1), use_bias=False)(f4)
+            aux = Conv2D(filters=256, kernel_size=(1, 1), use_bias=False)(aux)
             aux = BatchNormalization()(aux)
             aux = Activation(activation='relu')(aux)
             aux = Conv2D(filters=n_classes, kernel_size=(3, 3), padding='same')(aux)
