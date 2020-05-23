@@ -176,10 +176,11 @@ class PSPNetFactory:
         x = self.resize_image(input=x, factors=(32, 32)) # 1/1
 
         if with_auxiliary_loss:
-            aux = f4
-            # Pyramid Pooling Module
-            aux = self.pyramid_pooling_module(input=aux, pool_factors=[1, 2, 3, 6])
             # sub branch for auxiliary loss feedback
+            aux = f4
+            # aux = self.pyramid_pooling_module(input=aux, pool_factors=[1, 2, 3, 6])
+            # ここにも Pyramid Pooling Module いるのかなぁと思ったけど、この実装では入ってない。
+            # https://github.com/hszhao/semseg/blob/master/model/pspnet.py
             aux = Conv2D(filters=256, kernel_size=(1, 1), use_bias=False)(aux)
             aux = BatchNormalization()(aux)
             aux = Activation(activation='relu')(aux)
