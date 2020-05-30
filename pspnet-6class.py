@@ -19,7 +19,7 @@
 import os
 import sys
 import random
-os.environ["CUDA_VISIBLE_DEVICES"] = "0" # 使用するGPU番号
+os.environ["CUDA_VISIBLE_DEVICES"] = "1" # 使用するGPU番号
 
 import numpy as np
 import keras
@@ -27,6 +27,8 @@ from keras.models import *
 from keras.layers import *
 from keras.callbacks import *
 import keras.backend as K
+
+from tqdm import tqdm
 
 import cv2
 import itertools
@@ -380,19 +382,100 @@ class Segmentation:
 
         x = self.get_image_array(image_input=image_input, width=input_width, height=input_height)
         x = np.array([x])
-        o = model.predict(x, batch_size=None, verbose=1, steps=None)
+        o = model.predict(x, batch_size=None, verbose=0, steps=None)
         
         if len(o) == 2:
             o = o[0]
 
-        print(o.shape) # -> (1, 331776, 5)
+        # print(o.shape) # -> (1, 331776, 7)
         result = o[0]
-        print(result.shape) # -> (331776, 5)
+        # print(result.shape) # -> (331776, 7)
 
         pr = result.reshape((output_height,  output_width, n_classes))
-        # print(pr.shape) # -> (576, 576, 5)
+        # print(pr.shape) # -> (576, 576, 7)
 
         return pr
+
+
+    def evaluate(self, test_images, test_annotations, bootstrap_repeats=2000):
+        model = self.model
+
+        paths = self.get_pairs_from_paths(test_images, test_annotations)
+        paths = list(zip(*paths))
+        inp_images = list(paths[0])
+        annotations = list(paths[1])
+
+        z = []
+        for inp, ann in tqdm(zip(inp_images, annotations)):
+            # 推論結果
+            pr = self.predict(inp)
+            pr = pr.argmax(axis=2)
+            pr = pr.flatten()
+
+            # 正解 ground truth
+            gt = self.get_segmentation_array(image_input=ann, 
+                                        nClasses=model.n_classes,
+                                        width=model.output_width,
+                                        height=model.output_height,
+                                        no_reshape=True)
+            gt = gt.argmax(-1)
+            gt = gt.flatten()
+
+            # 計算量が大きいのでブートストラップ試行前に計算する。
+            tp = np.zeros(model.n_classes) # true positive
+            fp = np.zeros(model.n_classes) # false positive
+            fn = np.zeros(model.n_classes) # false negative
+            n_pixels = np.zeros(model.n_classes)
+            for cl_i in range(model.n_classes):
+                tp[cl_i] += np.sum((pr == cl_i) * (gt == cl_i))
+                fp[cl_i] += np.sum((pr == cl_i) * ((gt != cl_i)))
+                fn[cl_i] += np.sum((pr != cl_i) * ((gt == cl_i)))
+                n_pixels[cl_i] += np.sum(gt == cl_i)
+            z.append((tp, fp, fn, n_pixels))
+        
+        _mean = []
+        _freq = []
+        _clsw = [[] for i in range(model.n_classes)]
+
+        print("bootstraping")
+        for i in tqdm(np.arange(bootstrap_repeats)):
+            
+            tp = np.zeros(model.n_classes)
+            fp = np.zeros(model.n_classes)
+            fn = np.zeros(model.n_classes)
+            n_pixels = np.zeros(model.n_classes)
+            for idx in np.random.choice(len(z), len(z), replace=True):
+                _tp, _fp, _fn, _n_pixels = z[idx]
+                tp += _tp
+                fp += _fp
+                fn += _fn
+                n_pixels += _n_pixels
+
+            cl_wise_score = tp / (tp + fp + fn + 0.000000000001) # intersection over union
+            n_pixels_norm = n_pixels / np.sum(n_pixels)
+            frequency_weighted_IU = np.sum(cl_wise_score*n_pixels_norm)
+            mean_IU = np.mean(cl_wise_score)
+
+            _mean.append(mean_IU)
+            _freq.append(frequency_weighted_IU)
+            for i in range(model.n_classes) :
+                _clsw[i].append(cl_wise_score[i])
+
+        def mean_confidence_interval(a, confidence=0.95):
+            n = len(a)
+            m, se = np.mean(a), scipy.stats.sem(a)
+            h = se * scipy.stats.t.ppf((1 + confidence) / 2., n-1)
+            return m-h, m+h
+
+        print('== 各分類の IoU に対する ブートストラップ 95% 信頼区間 ==')
+        for i in range(model.n_classes) :
+            print("class_{}_IoU: ".format(i), end='')
+            print(mean_confidence_interval(np.array(_clsw[i])))        
+        print('mean_IoU: ', end='')
+        print(mean_confidence_interval(np.array(_mean)))
+        print('frequency_weighted_IU', end='')
+        print(mean_confidence_interval(np.array(_freq)))
+
 
     def train(self,
             input_height,
@@ -458,17 +541,23 @@ class Segmentation:
                             callbacks=callbacks,
                             use_multiprocessing=False)
 
+import numpy as np
+import scipy.stats
+
+
+
 
 help = """
-Usage: pspnet.py train
-Usage: pspnet.py predict weights_file output_suffix
+Usage: pspnet-6class.py train
+Usage: pspnet-6class.py predict weights_file output_suffix
+Usage: pspnet-6class.py evaluate weights_file bootstrap_repeats
 """
+
 
 if __name__ == "__main__":
 
     args = sys.argv
-    if len(args) < 2 :
-        exit(help)    
+    if len(args) < 2 : exit(help)
 
     input_height = 576
     input_width  = 576
@@ -477,10 +566,10 @@ if __name__ == "__main__":
 
     batch_size   = 10
     epoches      = 1000 / batch_size
-    
-    checkpoints_path = 'checkpoints'
+
+    checkpoints_path    = 'checkpoints'
     with_auxiliary_loss = False
-    aux_loss_weight = None
+    aux_loss_weight     = None #0.4
 
     model = PSPNetFactory().create(
         input_height=input_height, 
@@ -492,6 +581,10 @@ if __name__ == "__main__":
 
     command = args[1]
     if command == 'train' :
+
+        if len(args) > 2:
+            weights_file = args[2]
+            model.load_weights(weights_file)
 
         segmentation = Segmentation(model)
         segmentation.train(
@@ -509,8 +602,24 @@ if __name__ == "__main__":
             steps_per_epoch     = 512, # number of training images = 981
             val_steps_per_epoch = 122, # number of test images = 122
             aux_loss_weight   = aux_loss_weight)
-    
+
+    elif command == 'evaluate' :
+
+        if len(args) < 4 : exit(help)
+        
+        weights_file      = args[2]
+        bootstrap_repeats = int(args[3])
+        
+        model.load_weights(weights_file)
+        segmentation = Segmentation(model)
+        segmentation.evaluate(
+            test_images       = dataset_base_dir + '/test_images/', 
+            test_annotations  = dataset_base_dir + '/test_annotations/',
+            bootstrap_repeats = bootstrap_repeats)
+        
     elif command == 'predict' :
+
+        if len(args) < 4 : exit(help)
 
         weights_file  = args[2]
         output_suffix = args[3]
@@ -529,12 +638,12 @@ if __name__ == "__main__":
         }
         colors = {
             0: (0, 0, 0),
-            1: (1, 000, 255),
-            2: (2, 127, 255),
-            3: (3, 255, 255),
-            4: (4, 000, 127),
-            5: (5, 127, 127),
-            6: (6, 255, 127),
+            1: (1, 000, 255), # 赤
+            2: (2, 127, 255), # オレンジ
+            3: (3, 255, 255), # 黄
+            4: (4, 000, 127), # 暗い赤
+            5: (5, 127, 127), # 暗い黄
+            6: (6, 255, 127), # 黄緑
         }
 
         for name in os.listdir(os.path.join(dataset_base_dir, 'test_images')):
